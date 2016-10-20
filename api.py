@@ -46,6 +46,7 @@ class SolitaireAPI(remote.Service):
 
         game = SolitaireGame(None, None, None, None)
         game.new_game()
+        game.print_game()
 
         piles_json = jsonpickle.encode(game.piles)
         foundations_json = jsonpickle.encode(game.foundations)

@@ -8,13 +8,15 @@ class User(ndb.Model):
     email = ndb.StringProperty()
 
 def card_deck_objects_to_message_field(objects):
-        # if len(objects) == 1:
-        #     objects = [objects]
+
+        if type(objects) is not list:
+            objects = [objects]
+
         decks = []
         for p in objects:
             cards = []
-            if p['cards'] != []:
-                for c in p['cards']:
+            if p["cards"] != []:
+                for c in p["cards"]:
                     card = CardForm(suit=c['suit'],
                                     number=c['number'],
                                     color=c['color'],
@@ -22,7 +24,11 @@ def card_deck_objects_to_message_field(objects):
                     cards.append(card)
             deck = CardForms(cards=cards)
             decks.append(deck)
-        return decks
+
+        if len(decks) == 1:
+            return decks[0]
+        else:
+            return decks
 
 def byteify(input):
     if isinstance(input, dict):
@@ -62,16 +68,10 @@ class Game(ndb.Model):
         form.moves = self.moves
         form.game_over = self.game_over
         form.user_name = self.user.get().user_name
-        # form.piles = self.piles.encode('utf-8')
-        # form.foundations = self.foundations.encode('utf-8')
-        # form.deck = self.deck.encode('utf-8')
-        # form.open_deck = self.open_deck.encode('utf-8')
-        print 'foundations'
-        print byteify(json.loads(self.foundations))
         form.piles = card_deck_objects_to_message_field(byteify(json.loads(self.piles)))
         form.foundations = card_deck_objects_to_message_field(byteify(json.loads(self.foundations)))
-        form.deck = card_deck_objects_to_message_field(byteify(self.deck))[0]
-        form.open_deck = card_deck_objects_to_message_field(byteify(self.open_decks))[0]
+        form.deck = card_deck_objects_to_message_field(byteify(json.loads(self.deck)))
+        form.open_deck = card_deck_objects_to_message_field(byteify(json.loads(self.open_deck)))
         form.message = message
         return form
 
@@ -83,7 +83,6 @@ class CardForm(messages.Message):
     upturned = messages.BooleanField(4, required=True)
 
 class CardForms(messages.Message):
-    name = messages.StringField(1, required=True)
     cards = messages.MessageField(CardForm, 2, repeated=True)
 
 class GameForm(messages.Message):
@@ -91,10 +90,6 @@ class GameForm(messages.Message):
     moves = messages.IntegerField(2, required=True)
     game_over = messages.BooleanField(3, required=True)
     user_name = messages.StringField(4, required=True)
-    # piles = messages.StringField(5, required=True)
-    # foundations = messages.StringField(6, required=True)
-    # deck = messages.StringField(7, required=True)
-    # open_deck = messages.StringField(8, required=True)
     piles = messages.MessageField(CardForms, 5, repeated=True)
     foundations = messages.MessageField(CardForms, 6, repeated=True)
     deck = messages.MessageField(CardForms, 7, required=True)
