@@ -14,7 +14,7 @@ NPILES = 7
 NSUITS = 4
 NVALUES = 13
 
-
+# Class to model a playing card
 class Card:
     def __init__(self, suit, number, color, upturned):
         self.suit = suit
@@ -25,84 +25,107 @@ class Card:
     def show(self):
         self.upturned = True
 
+    # print the card in command window
     def print_card(self):
-
+        # there is no card, print a blank square
         if self is None:
-            print u"\u2B1C"
+            print u"\u2B1C".encode('utf-8')
             return
 
+        # print shapes insteads of suit names
         if self.suit == 'club':
-            suit = u"\u2663"
+            suit = u"\u2663".encode('utf-8')
         elif self.suit == 'diamond':
-            suit = u"\u2666"
+            suit = u"\u2666".encode('utf-8')
         elif self.suit == 'heart':
-            suit = u"\u2665"
+            suit = u"\u2665".encode('utf-8')
         else:
-            suit = u"\u2660"
+            suit = u"\u2660".encode('utf-8')
 
-        visible = ''
-        if self.upturned:
-            visible = 'v'
+        # Change the text color according to the card color
         if self.color == 'red':
             color = 'red'
         else:
             color = 'grey'
 
+        # If the card is downturned, print a solid black square
         if self.upturned:
             print colored(suit + str(self.number), color),
         else:
-            print u"\u25FC",
+            print u"\u25FC".encode('utf-8'),
 
-
-
+# A general card stack class which other specific card
+# classes will inherit
 class Stack:
     def __init__(self):
         self.cards = []
 
-
+    # Determine whether new cards can be added to the
+    # end of the stack
     def addable(self, card):
         pass
 
-    def add(self, card):
-        self.cards.append(card)
+    # Add a new card to the end of the stack
+    def add(self, cards):
+        if type(cards) is not list:
+            self.cards.append(cards)
+        else:
+            self.cards.extend(cards)
 
-
+    # Remove the top card from the stack
     def remove(self):
         del self.cards[-1]
 
+    #   Show the top card
     def show_top_card(self):
         self.cards[-1].show()
 
+    # Determine whether the stack is empty
     def is_empty(self):
         return self.cards == []
 
-
+# The class to model the pile
 class Pile(Stack):
     def addable(self, cards):
         card = cards[0]
-        if self.cards == []:
+
+        # If the pile is empty, only a stack starting
+        # with King can be added to the pile
+        if self.is_empty():
             return card.number == NVALUES
 
+        # A pile is addable only when the first card of the stack
+        # to be added has a value 1 less than the value of the pile
+        # top card and the color of the two cards are different
         top_card = self.cards[-1]
-        print 'number: ' + str(card.number) + ' ' + str(top_card.number)
-        print 'color: ' + card.color + ' ' + top_card.color
         return card.number == top_card.number - 1 and card.color != top_card.color
 
+# The class to model the foundation
 class Foundation(Stack):
     def addable(self, cards):
+
+        # Only one card can be added to the foundation
+        # at a time
         if len(cards) != 1:
             return False
 
-        if self.cards == []:
+        # If the foundation is empty, only Ace can be added
+        if self.is_empty():
             return cards[0].number == 1
 
+        # The card to be added has to be of the same suit
+        # and the value has to be 1 larger than that of the top card
         top_card = self.cards[-1]
         return cards[0].suit == top_card.suit and cards[0].number == top_card.number + 1
 
+# The class to model the deck
 class Deck(Stack):
+
+    # No cards should be allowed to add the deck
     def addable(self, cards):
         return False
 
+    # Fill the deck with cards
     def fill(self):
         for s in SUITS:
             for i in range(1, NVALUES + 1):
@@ -112,6 +135,11 @@ class Deck(Stack):
                             upturned=False)
                 self.add(card)
 
+    def downturn_all(self):
+        for c in self.cards:
+            c.upturned = False
+
+    # Shuffle the deck
     def shuffle(self):
         new_cards = []
         size = len(self.cards)
@@ -123,28 +151,13 @@ class Deck(Stack):
             new_cards.append(elem)
         self.cards = new_cards
 
+# A class to model the open deck. After a card is dealed,
+# it is moved to the open deck. The open deck cards are upturned
 class OpenDeck(Stack):
     def addable(self, cards):
         return True
 
-def pick_random_elements(data, number):
-    size = len(data)
-    picked = []
-    while number:
-        number = number - 1
-        size = size - 1
-        index = randint(0, size)
-        elem = data[index]
-        data[index] = data[size]
-        picked.append(elem)
-
-    return [picked, data[0:size]]
-
-
-def print_deck(deck):
-    for c in deck:
-        c.print_card()
-
+# A class to model the game
 class SolitaireGame:
 
     def __init__(self, piles, foundations, deck, open_deck):
@@ -170,39 +183,54 @@ class SolitaireGame:
 
         self.game_over = False
 
+    # Start a new game
     def new_game(self):
         self.deck = Deck()
+        # Fill the deck with cards
         self.deck.fill()
+        # Shuffle the deck
         self.deck.shuffle()
+
+        # Create an empty open deck
         self.open_deck  = OpenDeck()
 
+        # Fill the piles. The first pile gets 1 card,
+        # the second gets 2 cards, the third 3 cards,
+        # so on and so forth
         for i in range(0, NPILES):
             self.piles.append(Pile())
 
-            for c in self.deck.cards[-1-i:]:
-                self.piles[i].add(c)
+            self.piles[i].add(self.deck.cards[-1-i:])
 
             self.piles[i].show_top_card()
 
             for _ in range(i+1):
                 self.deck.remove()
 
+        # Create NSUITS empty foundations
         self.foundations = []
         for i in range(NSUITS):
             self.foundations.append(Foundation())
 
+        self.print_game()
 
+    # Deal a card
     def deal(self):
+        # If there are no cards left in the deck,
+        # move all cards from open deck back to the deck
         if self.deck.is_empty():
             self.open_deck.cards.reverse()
             self.deck.cards = self.open_deck.cards
+            self.deck.downturn_all()
             self.open_deck.cards = []
 
+        # Show the top card of the deck and move it to the open deck
         top_card = self.deck.cards[-1]
         top_card.show()
         self.open_deck.add(top_card)
         self.deck.remove()
 
+    # Make a move
     def move(self, origin, destination, card_position=-1):
         # determine source stack
         if origin[0] == 'p':
@@ -217,12 +245,11 @@ class SolitaireGame:
         else:
             cards = [source.cards[-1]]
 
+        # If the top card of the cards to be moved are downturned,
+        # abort
         if cards[0].upturned == False:
             print "Cannot move downturned cards"
             return
-
-        for c in cards:
-            c.print_card()
 
         # determine target stack
         if destination[0] == 'p':
@@ -234,26 +261,27 @@ class SolitaireGame:
 
         # make the move
         if target.addable(cards):
-            print "movable"
-            for c in cards:
-                target.add(c)
+            target.add(cards)
 
             for _ in range(len(cards)):
                 source.remove()
 
+    # Show the top card of  a pile
     def show_top(self, pile_number):
         self.piles[int(pile_number)].show_top_card()
 
 
-    def has_won(self):
+    # check whether the user has won the game
+    def have_won(self):
         won = True
         for f in self.foundations:
             if len(f.cards) != NVALUES:
                 won = False
         return won
 
+    # Start the game. Get inputs from user
     def start(self):
-        while not self.has_won():
+        while not self.have_won():
             command = raw_input("Enter your command: ")
             if command[0] == 'd':
                 self.deal()
@@ -270,10 +298,11 @@ class SolitaireGame:
 
             self.print_game()
 
+    # Print all stacks on the command window
     def print_game(self):
         print 'Open Deck',
         if self.open_deck.cards == []:
-            print u"\u25A1",
+            print u"\u25A1".encode('utf-8'),
         else:
             self.open_deck.cards[-1].print_card(),
         print ' '
@@ -281,7 +310,7 @@ class SolitaireGame:
         print 'Foundations'
         for f in self.foundations:
             if f.cards == []:
-                print u"\u25A1",
+                print u"\u25A1".encode('utf-8'),
             else:
                 f.cards[-1].print_card()
         print ' '
@@ -295,11 +324,7 @@ class SolitaireGame:
                 c.print_card(),
             print ' '
 
-game = SolitaireGame(None, None, None, None)
-game.new_game()
-test = jsonpickle.encode(game.piles)
-print test
-
-
-
+# game = SolitaireGame(None, None, None, None)
+# game.new_game()
+# game.start()
 
