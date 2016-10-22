@@ -10,6 +10,7 @@ for s in ['club', 'spade']:
 for s in ['diamond', 'heart']:
     COLOR[s] = 'red'
 
+
 NPILES = 7
 NSUITS = 4
 NVALUES = 13
@@ -160,7 +161,7 @@ class OpenDeck(Stack):
 # A class to model the game
 class SolitaireGame:
 
-    def __init__(self, piles, foundations, deck, open_deck):
+    def __init__(self, piles, foundations, deck, open_deck, game_over):
         if piles is None:
             self.piles = []
         else:
@@ -181,7 +182,7 @@ class SolitaireGame:
         else:
             self.open_deck = open_deck
 
-        self.game_over = False
+        self.game_over = game_over
 
     # Start a new game
     def new_game(self):
@@ -232,15 +233,36 @@ class SolitaireGame:
 
     # Make a move
     def move(self, origin, destination, card_position=-1):
-        # determine source stack
-        if origin[0] == 'p':
-            source = self.piles[int(origin[1])]
+        if '_' in origin:
+            origin_splitted = origin.split('_')
+            origin_name = origin_splitted[0]
+            origin_no = int(origin_splitted[1])
+        else:
+            origin_name = origin
 
-        if origin[0] == 'd':
+        if '_' in destination:
+            destination_splitted = destination.split('_')
+            destination_name = destination_splitted[0]
+            destination_no = int(destination_splitted[1])
+        else:
+            destination_name = destination
+
+        source = None
+        target = None
+
+        # determine source stack
+        if origin_name == 'PILE':
+            source = self.piles[origin_no]
+
+        if origin_name == 'DECK':
             source = self.open_deck
 
         # determine cards to be moved
-        if origin[0] == 'p' and destination[0] == 'p':
+        if abs(int(card_position)) > len(source.cards):
+            raise Exception("Card Position is out of range")
+
+        if origin_name == 'PILE' and \
+           destination_name == 'PILE':
             cards = source.cards[int(card_position):]
         else:
             cards = [source.cards[-1]]
@@ -252,12 +274,12 @@ class SolitaireGame:
             return
 
         # determine target stack
-        if destination[0] == 'p':
-            target = self.piles[int(destination[1])]
+        if destination_name == 'PILE':
+            target = self.piles[destination_no]
 
-        if destination[0] == 'f':
-            target = self.foundations[int(destination[1])]
 
+        if destination_name == 'FOUNDATION':
+            target = self.foundations[destination_no]
 
         # make the move
         if target.addable(cards):
@@ -266,13 +288,22 @@ class SolitaireGame:
             for _ in range(len(cards)):
                 source.remove()
 
-    # Show the top card of  a pile
-    def show_top(self, pile_number):
-        self.piles[int(pile_number)].show_top_card()
+        self.game_over = self.check_win()
 
+    # Show the top card of  a pile
+    def show_top(self, pile):
+        if '_' in pile:
+            pile_splitted = pile.split('_')
+            pile_name = pile_splitted[0]
+            pile_no = int(pile_splitted[1])
+
+        if pile_name != 'PILE':
+            raise ValueError("Can only show pile's top card")
+
+        self.piles[pile_no].show_top_card()
 
     # check whether the user has won the game
-    def have_won(self):
+    def check_win(self):
         won = True
         for f in self.foundations:
             if len(f.cards) != NVALUES:
@@ -281,17 +312,17 @@ class SolitaireGame:
 
     # Start the game. Get inputs from user
     def start(self):
-        while not self.have_won():
+        while not self.check_win():
             command = raw_input("Enter your command: ")
-            if command[0] == 'd':
+            if command[0] == 'D':
                 self.deal()
-            if command[0] == 'm':
+            if command[0] == 'M':
                 command = command.split(',')
                 source = command[1]
                 destination = command[2]
                 card_position = command[3]
                 self.move(source, destination, card_position)
-            if command[0] == 's':
+            if command[0] == 'S':
                 command = command.split(',')
                 pile_number = command[1]
                 self.show_top(pile_number)
@@ -324,7 +355,9 @@ class SolitaireGame:
                 c.print_card(),
             print ' '
 
-# game = SolitaireGame(None, None, None, None)
+## Code to test this module ##
+## ------------------------ ##
+# game = SolitaireGame(None, None, None, None, False)
 # game.new_game()
 # game.start()
 

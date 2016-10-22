@@ -1,9 +1,11 @@
+from datetime import date
 from protorpc import messages
 from google.appengine.ext import ndb
 import json
 # from model_utils import card_deck_objects_to_message_field
 
 class User(ndb.Model):
+    """User profile"""
     user_name = ndb.StringProperty(required=True)
     email = ndb.StringProperty()
 
@@ -42,6 +44,7 @@ def byteify(input):
         return input
 
 class Game(ndb.Model):
+    """Game object"""
     moves = ndb.IntegerProperty(required=True)
     game_over = ndb.BooleanProperty(required=True)
     user = ndb.KeyProperty(required=True, kind='User')
@@ -52,6 +55,7 @@ class Game(ndb.Model):
 
     @classmethod
     def new_game(cls, user, piles, foundations, deck, open_deck):
+        """Create and return a new game"""
         game = Game(user=user,
                     moves=0,
                     game_over=False,
@@ -62,7 +66,15 @@ class Game(ndb.Model):
         game.put()
         return game
 
+    def save_game(self):
+        """Save the result of the game"""
+        score = Score(user=self.user, date=date.today(),
+                      moves=self.moves)
+        score.put()
+
+
     def to_form(self, message):
+        """Return a GameForm representation of the Game"""
         form = GameForm()
         form.urlsafe_key = self.key.urlsafe()
         form.moves = self.moves
@@ -75,6 +87,15 @@ class Game(ndb.Model):
         form.message = message
         return form
 
+class Score(ndb.Model):
+    """Score object"""
+    user = ndb.KeyProperty(required=True, kind='User')
+    date = ndb.DateProperty(required=True)
+    moves = ndb.IntegerProperty(required=True)
+
+    def to_form(self):
+        return ScoreForm(user_name=self.user.get().user_name,
+                         date=str(self.date), moves=self.moves)
 
 class CardForm(messages.Message):
     suit = messages.StringField(1, required=True)
@@ -99,28 +120,41 @@ class GameForm(messages.Message):
 class NewGameForm(messages.Message):
     user_name = messages.StringField(1, required=True)
 
-# class MakeMoveForm(messages.Message):
-#     class Action(messages.Enum):
-#         'MOVE' = 'm'
-#         'DEAL' = 'd'
-#         'SHOW' = 's'
 
-#     class Stack(messages.Enum):
-#         'DECK' = 'd'
-#         'FOUNDATION 1' = 'f1'
-#         'FOUNDATION 2' = 'f2'
-#         'FOUNDATION 3' = 'f3'
-#         'FOUNDATION 4' = 'f4'
-#         'PILE 0' = 'p0'
-#         'PILE 1' = 'p1'
-#         'PILE 2' = 'p2'
-#         'PILE 3' = 'p3'
-#         'PILE 4' = 'p4'
-#         'PILE 5' = 'p5'
-#         'PILE 6' = 'p6'
+class Action(messages.Enum):
+    MOVE = 1
+    DEAL = 2
+    SHOW = 3
 
-#     action = messages.EnumField('MakeMoveForm.Action', 1, default='DEAL')
+class StackName(messages.Enum):
+    DECK = 1
+    FOUNDATION_0 = 2
+    FOUNDATION_1 = 3
+    FOUNDATION_2 = 4
+    FOUNDATION_3 = 5
+    PILE_0 = 6
+    PILE_1 = 7
+    PILE_2 = 8
+    PILE_3 = 9
+    PILE_4 = 10
+    PILE_5 = 11
+    PILE_6 = 12
 
+class MakeMoveForm(messages.Message):
+    action = messages.EnumField('Action', 1, default='DEAL', required=True)
+    origin = messages.EnumField('StackName', 2)
+    destination = messages.EnumField('StackName', 3)
+    card_position = messages.IntegerField(4)
+
+class ScoreForm(messages.Message):
+    """ScoreForm for outbound Score information"""
+    user_name = messages.StringField(1, required=True)
+    date = messages.StringField(2, required=True)
+    moves = messages.IntegerField(3, required=True)
+
+class ScoreForms(messages.Message):
+    """Return multiple ScoreForms"""
+    items = messages.MessageField(ScoreForm, 1, repeated=True)
 
 class StringMessage(messages.Message):
     message = messages.StringField(1, required=True)
