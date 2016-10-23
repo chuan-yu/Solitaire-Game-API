@@ -7,11 +7,17 @@ from solitaire import SolitaireGame
 from models import User
 from models import Game
 from models import Score
+from models import GameHistory
 from models import NewGameForm
 from models import GameForm
+from models import GameForms
 from models import MakeMoveForm
 from models import ScoreForm
 from models import ScoreForms
+from models import UserBestResultForm
+from models import UserBestResultForms
+from models import GameHistoryForm
+from models import GameHistoryForms
 from models import StringMessage
 from models import Action
 from models import StackName
@@ -27,7 +33,8 @@ USER_REQUEST = endpoints.ResourceContainer(user_name=messages.StringField(1),
 MAKE_MOVE_REQUEST = endpoints.ResourceContainer(
     MakeMoveForm,
     urlsafe_game_key=messages.StringField(1),)
-
+BEST_SCORE_REQUEST = endpoints.ResourceContainer(
+        number_of_results=messages.IntegerField(1))
 
 # Convert Game data to JSON format
 def to_json(game):
@@ -89,13 +96,22 @@ class SolitaireAPI(remote.Service):
         # Convert card stacks to JSON
         game_json = to_json(game)
         try:
-            game_db = Game.new_game(user.key,
+            game_db = Game.new_game(user=user.key,
                                     piles=game_json['piles'],
                                     foundations=game_json['foundations'],
                                     deck=game_json['deck'],
                                     open_deck=game_json['open_deck'])
         except Exception, e:
             logging.error(str(e))
+
+        # Save game history
+        game_history = GameHistory(game=game_db.key,
+                                   sequence=game_db.moves,
+                                   piles=game_db.piles,
+                                   foundations=game_db.piles,
+                                   deck=game_db.deck,
+                                   open_deck=game_db.open_deck)
+        game_history.put()
 
         return game_db.to_form('New game created!')
 
@@ -111,6 +127,35 @@ class SolitaireAPI(remote.Service):
             return game.to_form('Time to make a move!')
         else:
             raise endpoints.NotFoundException('Game not found!')
+
+
+    @endpoints.method(request_message=USER_REQUEST,
+                      response_message=GameForms,
+                      path='game/user/{user_name}',
+                      name='get_user_game',
+                      http_method='GET')
+    def get_user_game(self, request):
+        """Return all games created by a user"""
+        user = User.query(User.user_name == request.user_name).get()
+        games = Game.query(ancestor=user.key).fetch()
+        return GameForms(items=[game.to_form("Make a move") for game in games])
+
+    @endpoints.method(request_message=GET_GAME_REQUEST,
+                      response_message=StringMessage,
+                      path='game/cancel_game/{urlsafe_game_key}',
+                      name='cancel_game',
+                      http_method='GET')
+    def cancel_game(self, request):
+        """Delete a game from the database"""
+        game = get_by_urlsafe(request.urlsafe_game_key, Game)
+        if game:
+            if not game.game_over:
+                game.key.delete()
+                return StringMessage(message="The game has been deleted!")
+            else:
+                raise endpoints.ForbiddenException("Not allowed to delete a completed game")
+        else:
+            raise endpoints.NotFoundException("Game not found")
 
     @endpoints.method(request_message=MAKE_MOVE_REQUEST,
                       response_message=GameForm,
@@ -184,6 +229,15 @@ class SolitaireAPI(remote.Service):
 
         game_db.put()
 
+        # Save game history
+        game_history = GameHistory(game=game_db.key,
+                                   sequence=game_db.moves,
+                                   piles=game_db.piles,
+                                   foundations=game_db.piles,
+                                   deck=game_db.deck,
+                                   open_deck=game_db.open_deck)
+        game_history.put()
+
         if game_db.game_over:
             game_db.save_game()
 
@@ -198,10 +252,10 @@ class SolitaireAPI(remote.Service):
         return ScoreForms(items=[score.to_form() for score in Score.query()])
 
     @endpoints.method(request_message=USER_REQUEST,
-                          response_message=ScoreForms,
-                          path='scores/user/{user_name}',
-                          name='get_user_scores',
-                          http_method='GET')
+                      response_message=ScoreForms,
+                      path='scores/user/{user_name}',
+                      name='get_user_scores',
+                      http_method='GET')
     def get_user_scores(self, request):
         """Returns all of an individual User's scores"""
         user = User.query(User.user_name == request.user_name).get()
@@ -210,5 +264,50 @@ class SolitaireAPI(remote.Service):
                     'A User with that name does not exist!')
         scores = Score.query(Score.user == user.key)
         return ScoreForms(items=[score.to_form() for score in scores])
+
+    @endpoints.method(request_message=BEST_SCORE_REQUEST,
+                      response_message=ScoreForms,
+                      path='scores/best_scores/{number_of_results}',
+                      name='get_best_scores',
+                      http_method='GET')
+    def get_best_scores(self, request):
+        """Return the best game results"""
+        scores = Score.query().order(Score.moves).fetch(int(request.number_of_results))
+        items = [score.to_form() for score in scores]
+        return ScoreForms(items=items)
+
+    @endpoints.method(request_message=BEST_SCORE_REQUEST,
+                      response_message=UserBestResultForms,
+                      path='rankings/{number_of_results}',
+                      name='get_user_rankings',
+                      http_method='GET')
+    def get_user_rankings(self, request):
+        """Return users' rankings based on their least number of moves"""
+        rankings = []
+        users = User.query().fetch()
+        # Find the best score for each user, create a form
+        # and add it to the rangkings list
+        for user in users:
+            score_best = Score.query(Score.user == user.key).order(Score.moves).get()
+            best_result_form = UserBestResultForm(user=score_best.user.get().user_name,
+                least_moves=score_best.moves)
+            rankings.append(best_result_form)
+
+        # Sort the ranking list based on the least_moves
+        rankings.sort(key=lambda x: x.least_moves)
+        return UserBestResultForms(items=rankings)
+
+    @endpoints.method(request_message=GET_GAME_REQUEST,
+                      response_message=GameHistoryForms,
+                      path='history/{urlsafe_game_key}',
+                      name='get_game_history',
+                      http_method='GET')
+    def get_game_history(self, request):
+        """Return every moves of the game"""
+        game_histories = GameHistory(GameHistory.game == request.urlsafe_game_key).fetch()
+        return GameHistoryForms(items=[history.to_form for history in game_histories])
+
+
+
 
 api = endpoints.api_server([SolitaireAPI])
