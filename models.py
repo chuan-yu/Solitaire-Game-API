@@ -107,12 +107,13 @@ class GameHistory(ndb.Model):
 
     def to_form(self):
         form = GameHistoryForm()
-        form.game = self.game
+        form.game = self.game.urlsafe()
         form.sequence = self.sequence
         form.piles = card_deck_objects_to_message_field(byteify(json.loads(self.piles)))
         form.foundations = card_deck_objects_to_message_field(byteify(json.loads(self.foundations)))
         form.deck = card_deck_objects_to_message_field(byteify(json.loads(self.deck)))
         form.open_deck = card_deck_objects_to_message_field(byteify(json.loads(self.open_deck)))
+        return form
 
 class CardForm(messages.Message):
     suit = messages.StringField(1, required=True)

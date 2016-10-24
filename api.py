@@ -23,6 +23,7 @@ from models import Action
 from models import StackName
 from utils import get_by_urlsafe
 
+from google.appengine.ext import ndb
 import jsonpickle
 
 NEW_GAME_REQUEST = endpoints.ResourceContainer(NewGameForm)
@@ -304,8 +305,9 @@ class SolitaireAPI(remote.Service):
                       http_method='GET')
     def get_game_history(self, request):
         """Return every moves of the game"""
-        game_histories = GameHistory(GameHistory.game == request.urlsafe_game_key).fetch()
-        return GameHistoryForms(items=[history.to_form for history in game_histories])
+        print request.urlsafe_game_key
+        game_histories = GameHistory.query(GameHistory.game == ndb.Key(urlsafe=request.urlsafe_game_key)).fetch()
+        return GameHistoryForms(items=[history.to_form() for history in game_histories])
 
 
 
