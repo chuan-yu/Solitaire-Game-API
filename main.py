@@ -1,25 +1,42 @@
 #!/usr/bin/env python
-#
-# Copyright 2007 Google Inc.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-#
-import webapp2
 
-class MainHandler(webapp2.RequestHandler):
+"""main.py - This file contains handlers that are called by taskqueue and/or
+cronjobs."""
+import logging
+
+import webapp2
+from google.appengine.api import mail, app_identity
+from api import SolitaireAPI
+
+from models import User
+from models import Game
+
+
+class SendReminderEmail(webapp2.RequestHandler):
     def get(self):
-        self.response.write('Hello world!')
+        """Send a reminder email to each User with an email and unfinisehd games
+           about games. Called every hour using a cron job"""
+        app_id = app_identity.get_application_id()
+        users = User.query(User.email != None).fetch()
+        have_incomplete_game = False
+        for user in users:
+            games = Game.query(ancestor=user.key).fetch()
+            for game in games:
+                if not game.game_over:
+                    have_incomplete_game = True
+                    break
+
+            if have_incomplete_game:
+                subject = 'This is a reminder!'
+                body = 'Hello {}, try out Solitaire Game!'.format(user.user_name)
+                # This will send test emails, the arguments to send_mail are:
+                # from, to, subject, body
+                mail.send_mail('noreply@{}.appspotmail.com'.format(app_id),
+                               user.email,
+                               subject,
+                               body)
+
 
 app = webapp2.WSGIApplication([
-    ('/', MainHandler)
+    ('/crons/send_reminder', SendReminderEmail)
 ], debug=True)

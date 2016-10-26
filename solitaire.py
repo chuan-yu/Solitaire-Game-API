@@ -101,6 +101,11 @@ class Pile(Stack):
         top_card = self.cards[-1]
         return card.number == top_card.number - 1 and card.color != top_card.color
 
+    # Check if the top card of the pile is upturned
+    def top_card_upturned(self):
+
+        return self.cards[-1].upturned
+
 # The class to model the foundation
 class Foundation(Stack):
     def addable(self, cards):
@@ -231,7 +236,7 @@ class SolitaireGame:
         self.open_deck.add(top_card)
         self.deck.remove()
 
-    # Make a move
+    # Make a move. Return True if a move is made
     def move(self, origin, destination, card_position=-1):
         if '_' in origin:
             origin_splitted = origin.split('_')
@@ -249,6 +254,7 @@ class SolitaireGame:
 
         source = None
         target = None
+        moved = False
 
         # determine source stack
         if origin_name == 'PILE':
@@ -288,10 +294,16 @@ class SolitaireGame:
             for _ in range(len(cards)):
                 source.remove()
 
+            moved = True
+
+        # Check if the game is over after the move
         self.game_over = self.check_win()
 
-    # Show the top card of  a pile
+        return moved
+
+    # Show the top card of a pile. Return True if showed
     def show_top(self, pile):
+        showed = False
         if '_' in pile:
             pile_splitted = pile.split('_')
             pile_name = pile_splitted[0]
@@ -300,7 +312,11 @@ class SolitaireGame:
         if pile_name != 'PILE':
             raise ValueError("Can only show pile's top card")
 
-        self.piles[pile_no].show_top_card()
+        if not self.piles[pile_no].top_card_upturned():
+            self.piles[pile_no].show_top_card()
+            showed = True
+
+        return showed
 
     # check whether the user has won the game
     def check_win(self):

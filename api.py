@@ -106,13 +106,12 @@ class SolitaireAPI(remote.Service):
             logging.error(str(e))
 
         # Save game history
-        game_history = GameHistory(game=game_db.key,
+        game_history = GameHistory.new_history(game=game_db.key,
                                    sequence=game_db.moves,
                                    piles=game_db.piles,
-                                   foundations=game_db.piles,
+                                   foundations=game_db.foundations,
                                    deck=game_db.deck,
                                    open_deck=game_db.open_deck)
-        game_history.put()
 
         return game_db.to_form('New game created!')
 
@@ -146,11 +145,15 @@ class SolitaireAPI(remote.Service):
                       path='game/cancel_game/{urlsafe_game_key}',
                       name='cancel_game',
                       http_method='GET')
+    @ndb.transactional
     def cancel_game(self, request):
         """Delete a game from the database"""
         game = get_by_urlsafe(request.urlsafe_game_key, Game)
         if game:
             if not game.game_over:
+                game_history = GameHistory.query(ancestor=game.key).fetch()
+                for h in game_history:
+                    h.key.delete()
                 game.key.delete()
                 return StringMessage(message="The game has been deleted!")
             else:
@@ -174,7 +177,7 @@ class SolitaireAPI(remote.Service):
         # field cannot be empty
         if action == Action.MOVE:
             if not origin or not destination:
-                raise endpoints.BadRequestError('Souce and Destination ' +
+                raise endpoints.BadRequestException('Souce and Destination ' +
                                  'must not be empty for MOVE action')
 
             if not card_position:
@@ -183,7 +186,7 @@ class SolitaireAPI(remote.Service):
         # If action is SHOW, the source field cannot be empty
         if action == Action.SHOW:
             if not origin:
-                raise endpoints.BadRequestError('Souce must not be empty for SHOW action')
+                raise endpoints.BadRequestException('Souce must not be empty for SHOW action')
 
         # Load the game from DB
         game_db = get_by_urlsafe(request.urlsafe_game_key, Game)
@@ -201,43 +204,59 @@ class SolitaireAPI(remote.Service):
 
         # Make the move
 
+        # To track whether any cards are moved or upturned
+
+        changed = False
         if action == Action.DEAL:
             game.deal()
+            changed = True
             game_db.moves += 1
             game.print_game()
 
         if action == Action.MOVE:
-            game.move(origin=str(origin),
+            changed = game.move(origin=str(origin),
                       destination=str(destination),
                       card_position=card_position)
-            game_db.moves += 1
+            if changed:
+                game_db.moves += 1
+            else:
+                game.print_game()
+                raise endpoints.BadRequestException("Illigal move. Try again.")
+
             game.print_game()
 
         if action == Action.SHOW:
-            game.show_top(str(origin))
-            game_db.moves += 1
+            changed = game.show_top(str(origin))
+
+            if changed:
+                game_db.moves += 1
+            else:
+                game.print_game()
+                raise endpoints.BadRequestException('Could not show the card.')
+
             game.print_game()
 
         # Convert the game to JSON format
         game_json = to_json(game)
 
-        # Update the fields and save in DB
-        game_db.piles = game_json['piles']
-        game_db.foundations = game_json['foundations']
-        game_db.deck = game_json['deck']
-        game_db.open_deck = game_json['open_deck']
-        game_db.game_over = game_json['game_over']
+        # If changed, update the fields and save in DB
+        if changed:
+            game_db.piles = game_json['piles']
+            game_db.foundations = game_json['foundations']
+            game_db.deck = game_json['deck']
+            game_db.open_deck = game_json['open_deck']
+            game_db.game_over = game_json['game_over']
 
-        game_db.put()
+            game_db.put()
 
-        # Save game history
-        game_history = GameHistory(game=game_db.key,
-                                   sequence=game_db.moves,
-                                   piles=game_db.piles,
-                                   foundations=game_db.piles,
-                                   deck=game_db.deck,
-                                   open_deck=game_db.open_deck)
-        game_history.put()
+        # If changed, save game history
+        if changed:
+            game_history = GameHistory.new_history(game=game_db.key,
+                                       sequence=game_db.moves,
+                                       piles=game_db.piles,
+                                       foundations=game_db.foundations,
+                                       deck=game_db.deck,
+                                       open_deck=game_db.open_deck)
 
         if game_db.game_over:
             game_db.save_game()
@@ -306,7 +325,7 @@ class SolitaireAPI(remote.Service):
     def get_game_history(self, request):
         """Return every moves of the game"""
         print request.urlsafe_game_key
-        game_histories = GameHistory.query(GameHistory.game == ndb.Key(urlsafe=request.urlsafe_game_key)).fetch()
+        game_histories = GameHistory.query(ancestor=ndb.Key(urlsafe=request.urlsafe_game_key)).fetch()
         return GameHistoryForms(items=[history.to_form() for history in game_histories])
 
 

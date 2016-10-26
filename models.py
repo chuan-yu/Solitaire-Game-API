@@ -10,7 +10,7 @@ class User(ndb.Model):
     email = ndb.StringProperty()
 
 def card_deck_objects_to_message_field(objects):
-
+    """Conver Python card deck objects to MessageField"""
         if type(objects) is not list:
             objects = [objects]
 
@@ -33,6 +33,7 @@ def card_deck_objects_to_message_field(objects):
             return decks
 
 def byteify(input):
+    """Convert JSON string to JSON object"""
     if isinstance(input, dict):
         return {byteify(key): byteify(value)
                 for key, value in input.iteritems()}
@@ -47,7 +48,6 @@ class Game(ndb.Model):
     """Game object"""
     moves = ndb.IntegerProperty(required=True)
     game_over = ndb.BooleanProperty(required=True)
-    # user = ndb.KeyProperty(required=True, kind='User')
     piles = ndb.JsonProperty()
     foundations = ndb.JsonProperty()
     deck = ndb.JsonProperty()
@@ -98,12 +98,18 @@ class Score(ndb.Model):
 
 class GameHistory(ndb.Model):
     """GameHistory object"""
-    game = ndb.KeyProperty(required=True, kind='Game')
     sequence = ndb.IntegerProperty(required=True)
     piles = ndb.JsonProperty(required=True)
     foundations = ndb.JsonProperty(required=True)
     deck = ndb.JsonProperty(required=True)
     open_deck = ndb.JsonProperty(required=True)
+
+    @classmethod
+    def new_history(cls, game, sequence, piles, foundations, deck, open_deck):
+        history = GameHistory(parent=game, sequence=sequence,
+                              piles=piles, foundations=foundations,
+                              deck=deck, open_deck=open_deck)
+        history.put()
 
     def to_form(self):
         form = GameHistoryForm()
@@ -116,16 +122,19 @@ class GameHistory(ndb.Model):
         return form
 
 class CardForm(messages.Message):
+    """CardForm for Card MessageField"""
     suit = messages.StringField(1, required=True)
     number = messages.IntegerField(2, required=True)
     color = messages.StringField(3, required=True)
     upturned = messages.BooleanField(4, required=True)
 
 class CardForms(messages.Message):
+    """Return multiple CardForms"""
     cards = messages.MessageField(CardForm, 2, repeated=True)
 
 
 class GameForm(messages.Message):
+    """GameForm for outbound game state information"""
     urlsafe_key = messages.StringField(1, required=True)
     moves = messages.IntegerField(2, required=True)
     game_over = messages.BooleanField(3, required=True)
@@ -137,18 +146,22 @@ class GameForm(messages.Message):
 
 
 class GameForms(messages.Message):
+    """Return multiple GameForms"""
     items = messages.MessageField(GameForm, 1, repeated=True)
 
 class NewGameForm(messages.Message):
+    """Form used to send a new game request"""
     user_name = messages.StringField(1, required=True)
 
 
 class Action(messages.Enum):
+    """Enum class for action"""
     MOVE = 1
     DEAL = 2
     SHOW = 3
 
 class StackName(messages.Enum):
+    """Enum class for stack name"""
     DECK = 1
     FOUNDATION_0 = 2
     FOUNDATION_1 = 3
@@ -163,6 +176,7 @@ class StackName(messages.Enum):
     PILE_6 = 12
 
 class MakeMoveForm(messages.Message):
+    """Form used to submit a make a move request"""
     action = messages.EnumField('Action', 1, default='DEAL', required=True)
     origin = messages.EnumField('StackName', 2)
     destination = messages.EnumField('StackName', 3)
@@ -189,7 +203,6 @@ class UserBestResultForms(messages.Message):
 
 class GameHistoryForm(messages.Message):
     """Return the form representation of the Game History"""
-    game = messages.StringField(1, required=True)
     sequence = messages.IntegerField(2, required=True)
     piles = messages.MessageField(CardForms, 3, repeated=True)
     foundations = messages.MessageField(CardForms, 4, repeated=True)
@@ -201,4 +214,5 @@ class GameHistoryForms(messages.Message):
     items = messages.MessageField(GameHistoryForm, 1, repeated=True)
 
 class StringMessage(messages.Message):
+    """Outbound message""
     message = messages.StringField(1, required=True)
