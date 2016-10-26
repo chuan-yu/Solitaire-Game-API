@@ -144,7 +144,7 @@ class SolitaireAPI(remote.Service):
                       response_message=StringMessage,
                       path='game/cancel_game/{urlsafe_game_key}',
                       name='cancel_game',
-                      http_method='GET')
+                      http_method='POST')
     @ndb.transactional
     def cancel_game(self, request):
         """Delete a game from the database"""

@@ -214,5 +214,5 @@ class GameHistoryForms(messages.Message):
     items = messages.MessageField(GameHistoryForm, 1, repeated=True)
 
 class StringMessage(messages.Message):
-    """Outbound message""
+    """Outbound message"""
     message = messages.StringField(1, required=True)
