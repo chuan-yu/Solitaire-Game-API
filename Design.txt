@@ -1,0 +1,11 @@
+The two main struggles I faces are:
+
+1. How should the stacks of cards be stored in the DB?
+
+I decided finally to store them as JsonProperty in the DB as the manipulations of the card data, e.g. moving cards, dealing a card and show a card, are better to be done using Python instead of using DB.
+
+2. How to copy JSON from DB to a Form?
+
+If JSON is copied direct from Datastore to a StringField on a message form, what will be sent to the front-end is JSON string rather than JSON objects, which is not ideal.
+
+Therefore at last I used a more complicated method, that is, using CardForm and CardForms to model a list of cards.
