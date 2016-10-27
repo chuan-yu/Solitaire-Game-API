@@ -137,7 +137,13 @@ class SolitaireAPI(remote.Service):
     def get_user_game(self, request):
         """Return all games created by a user"""
         user = User.query(User.user_name == request.user_name).get()
+        if not user:
+            raise endpoints.NotFoundException("The User does not exist")
+
         games = Game.query(ancestor=user.key).fetch()
+        if not games:
+            raise endpoints.NotFoundException("The User does not have any Game")
+
         return GameForms(items=[game.to_form("Make a move") for game in games])
 
     @endpoints.method(request_message=GET_GAME_REQUEST,
@@ -150,6 +156,12 @@ class SolitaireAPI(remote.Service):
         """Delete a game from the database"""
         game = get_by_urlsafe(request.urlsafe_game_key, Game)
         if game:
+            # Check that user has the right to delete the game
+            current_user = endpoints.get_current_user()
+            if current_user.nickname() != game.key.parent().get().user_name:
+                raise endpoints.ForbiddenException('You are not authroized ' +
+                    'to delete the game')
+
             if not game.game_over:
                 game_history = GameHistory.query(ancestor=game.key).fetch()
                 for h in game_history:
@@ -190,6 +202,8 @@ class SolitaireAPI(remote.Service):
 
         # Load the game from DB
         game_db = get_by_urlsafe(request.urlsafe_game_key, Game)
+        if not game_db:
+            raise endpoints.NotFoundException("The Game does not exist")
 
         # If game is over, copy to form and return
         if game_db.game_over:
@@ -269,7 +283,10 @@ class SolitaireAPI(remote.Service):
                       http_method='GET')
     def get_scores(self, request):
         """Return all scores"""
-        return ScoreForms(items=[score.to_form() for score in Score.query()])
+        scores = Score.query()
+        if not scores:
+            raise endpoints.NotFoundException("No Scores found")
+        return ScoreForms(items=[score.to_form() for score in scores])
 
     @endpoints.method(request_message=USER_REQUEST,
                       response_message=ScoreForms,
@@ -283,6 +300,9 @@ class SolitaireAPI(remote.Service):
             raise endpoints.NotFoundException(
                     'A User with that name does not exist!')
         scores = Score.query(Score.user == user.key)
+        if not scores:
+            raise endpoints.NotFoundException("No scores found for this User")
+
         return ScoreForms(items=[score.to_form() for score in scores])
 
     @endpoints.method(request_message=BEST_SCORE_REQUEST,
@@ -293,6 +313,9 @@ class SolitaireAPI(remote.Service):
     def get_best_scores(self, request):
         """Return the best game results"""
         scores = Score.query().order(Score.moves).fetch(int(request.number_of_results))
+        if not scores:
+            raise endpoints.NotFoundException("No scores found")
+
         items = [score.to_form() for score in scores]
         return ScoreForms(items=items)
 
@@ -305,10 +328,15 @@ class SolitaireAPI(remote.Service):
         """Return users' rankings based on their least number of moves"""
         rankings = []
         users = User.query().fetch()
+        if not users:
+            raise endpoints.NotFoundException("No users found")
         # Find the best score for each user, create a form
         # and add it to the rangkings list
         for user in users:
             score_best = Score.query(Score.user == user.key).order(Score.moves).get()
+            if not score_best:
+                raise endpoints.NotFoundException("No scores available")
+
             best_result_form = UserBestResultForm(user=score_best.user.get().user_name,
                 least_moves=score_best.moves)
             rankings.append(best_result_form)
@@ -324,8 +352,10 @@ class SolitaireAPI(remote.Service):
                       http_method='GET')
     def get_game_history(self, request):
         """Return every moves of the game"""
-        print request.urlsafe_game_key
         game_histories = GameHistory.query(ancestor=ndb.Key(urlsafe=request.urlsafe_game_key)).fetch()
+        if not game_histories:
+            raise endpoints.NotFoundException("No Game Histories found")
+
         return GameHistoryForms(items=[history.to_form() for history in game_histories])
 
 
