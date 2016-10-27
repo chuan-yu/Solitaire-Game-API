@@ -11,26 +11,26 @@ class User(ndb.Model):
 
 def card_deck_objects_to_message_field(objects):
     """Conver Python card deck objects to MessageField"""
-        if type(objects) is not list:
-            objects = [objects]
+    if type(objects) is not list:
+        objects = [objects]
 
-        decks = []
-        for p in objects:
-            cards = []
-            if p["cards"] != []:
-                for c in p["cards"]:
-                    card = CardForm(suit=c['suit'],
-                                    number=c['number'],
-                                    color=c['color'],
-                                    upturned=c['upturned'])
-                    cards.append(card)
-            deck = CardForms(cards=cards)
-            decks.append(deck)
+    decks = []
+    for p in objects:
+        cards = []
+        if p["cards"] != []:
+            for c in p["cards"]:
+                card = CardForm(suit=c['suit'],
+                                number=c['number'],
+                                color=c['color'],
+                                upturned=c['upturned'])
+                cards.append(card)
+        deck = CardForms(cards=cards)
+        decks.append(deck)
 
-        if len(decks) == 1:
-            return decks[0]
-        else:
-            return decks
+    if len(decks) == 1:
+        return decks[0]
+    else:
+        return decks
 
 def byteify(input):
     """Convert JSON string to JSON object"""
