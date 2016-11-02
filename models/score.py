@@ -1,4 +1,7 @@
 from google.appengine.ext import ndb
+from score_forms import ScoreForm
+
+
 class Score(ndb.Model):
     """Score object"""
     user = ndb.KeyProperty(required=True, kind='User')

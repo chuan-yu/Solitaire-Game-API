@@ -1,10 +1,12 @@
 from protorpc import messages
 
+
 class Action(messages.Enum):
     """Enum class for action"""
     MOVE = 1
     DEAL = 2
     SHOW = 3
+
 
 class StackName(messages.Enum):
     """Enum class for stack name"""
@@ -20,6 +22,7 @@ class StackName(messages.Enum):
     PILE_4 = 10
     PILE_5 = 11
     PILE_6 = 12
+
 
 class MakeMoveForm(messages.Message):
     """Form used to submit a make a move request"""

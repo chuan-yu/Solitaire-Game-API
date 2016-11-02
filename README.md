@@ -38,7 +38,7 @@ A move can be made by entering commands in the Python console. Examples of moves
 - Download the project files from: ```https://github.com/yuchuan8/Solitaire-Game-API```
 - Run the project using Google App Engine
 - If Chrome is used, launch Chrome using command ```[path-to-Chrome] --user-data-dir=test --allow-running-insecure-content```. For example: ```/Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome --user-data-dir=test --allow-running-insecure-content```
-- Visit ```localhost:12080/_ah/api/explorer```
+- Visit ```localhost:8080/_ah/api/explorer```. Port number may be different depending on your local setup.
 - When creating a new game or making a move, the cards in each stack will be printed on the log window. This is to make test results easier to understand.
 
 #### Test Online

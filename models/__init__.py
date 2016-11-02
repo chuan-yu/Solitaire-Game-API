@@ -12,4 +12,3 @@ from score_forms import ScoreForm, ScoreForms
 from user_best_result_forms import UserBestResultForm, UserBestResultForms
 from game_history_forms import GameHistoryForm, GameHistoryForms
 from string_message import StringMessage
-

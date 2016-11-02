@@ -28,16 +28,18 @@ import jsonpickle
 
 NEW_GAME_REQUEST = endpoints.ResourceContainer(NewGameForm)
 GET_GAME_REQUEST = endpoints.ResourceContainer(
-        urlsafe_game_key=messages.StringField(1),)
+    urlsafe_game_key=messages.StringField(1),)
 USER_REQUEST = endpoints.ResourceContainer(user_name=messages.StringField(1),
-                                            email=messages.StringField(2))
+                                           email=messages.StringField(2))
 MAKE_MOVE_REQUEST = endpoints.ResourceContainer(
     MakeMoveForm,
     urlsafe_game_key=messages.StringField(1),)
 BEST_SCORE_REQUEST = endpoints.ResourceContainer(
-        number_of_results=messages.IntegerField(1))
+    number_of_results=messages.IntegerField(1))
 
 # Convert Game data to JSON format
+
+
 def to_json(game):
     piles_json = jsonpickle.encode(game.piles)
     foundations_json = jsonpickle.encode(game.foundations)
@@ -50,6 +52,8 @@ def to_json(game):
             'game_over': game.game_over}
 
 # Convert JSON object to python SolitaireGame object
+
+
 def to_python(piles, foundations, deck, open_deck, game_over):
     piles = jsonpickle.decode(piles)
     foundations = jsonpickle.decode(foundations)
@@ -57,6 +61,7 @@ def to_python(piles, foundations, deck, open_deck, game_over):
     open_deck = jsonpickle.decode(open_deck)
 
     return SolitaireGame(piles, foundations, deck, open_deck, game_over)
+
 
 @endpoints.api(name='solitaire', version='1')
 class SolitaireAPI(remote.Service):
@@ -72,12 +77,13 @@ class SolitaireAPI(remote.Service):
         # Check that user already exists
         if User.query(User.user_name == request.user_name).get():
             raise endpoints.ConflictException(
-                    "A user with that name already exists")
+                "A user with that name already exists")
         # Create a new user
         user = User(user_name=request.user_name, email=request.email)
         user.put()
-        return StringMessage(message="User {} created!".format(request.user_name))
 
+        return StringMessage(
+            message="User {} created!".format(request.user_name))
 
     @endpoints.method(request_message=NEW_GAME_REQUEST,
                       response_message=GameForm,
@@ -89,7 +95,7 @@ class SolitaireAPI(remote.Service):
         user = User.query(User.user_name == request.user_name).get()
         if not user:
             raise endpoints.NotFoundException(
-                    "A user with that name does not exist")
+                "A user with that name does not exist")
 
         game = SolitaireGame(None, None, None, None, False)
         game.new_game()
@@ -106,12 +112,13 @@ class SolitaireAPI(remote.Service):
             logging.error(str(e))
 
         # Save game history
-        game_history = GameHistory.new_history(game=game_db.key,
-                                   sequence=game_db.moves,
-                                   piles=game_db.piles,
-                                   foundations=game_db.foundations,
-                                   deck=game_db.deck,
-                                   open_deck=game_db.open_deck)
+        GameHistory.new_history(game=game_db.key,
+                                sequence=game_db.moves,
+                                game_over=game_db.game_over,
+                                piles=game_db.piles,
+                                foundations=game_db.foundations,
+                                deck=game_db.deck,
+                                open_deck=game_db.open_deck)
 
         return game_db.to_form('New game created!')
 
@@ -128,21 +135,23 @@ class SolitaireAPI(remote.Service):
         else:
             raise endpoints.NotFoundException('Game not found!')
 
-
     @endpoints.method(request_message=USER_REQUEST,
                       response_message=GameForms,
                       path='game/user/{user_name}',
-                      name='get_user_game',
+                      name='get_user_games',
                       http_method='GET')
-    def get_user_game(self, request):
-        """Return all games created by a user"""
+    def get_user_games(self, request):
+        """Return all active games created by a user"""
         user = User.query(User.user_name == request.user_name).get()
         if not user:
             raise endpoints.NotFoundException("The User does not exist")
 
-        games = Game.query(ancestor=user.key).fetch()
+        games = Game.query(ancestor=user.key).filter(
+            Game.game_over==False).fetch()
+
         if not games:
-            raise endpoints.NotFoundException("The User does not have any Game")
+            raise endpoints.NotFoundException(
+                "The User does not have any Game")
 
         return GameForms(items=[game.to_form("Make a move") for game in games])
 
@@ -150,18 +159,12 @@ class SolitaireAPI(remote.Service):
                       response_message=StringMessage,
                       path='game/cancel_game/{urlsafe_game_key}',
                       name='cancel_game',
-                      http_method='POST')
+                      http_method='DELETE')
     @ndb.transactional
     def cancel_game(self, request):
         """Delete a game from the database"""
         game = get_by_urlsafe(request.urlsafe_game_key, Game)
         if game:
-            # Check that user has the right to delete the game
-            current_user = endpoints.get_current_user()
-            if current_user.nickname() != game.key.parent().get().user_name:
-                raise endpoints.ForbiddenException('You are not authroized ' +
-                    'to delete the game')
-
             if not game.game_over:
                 game_history = GameHistory.query(ancestor=game.key).fetch()
                 for h in game_history:
@@ -169,7 +172,8 @@ class SolitaireAPI(remote.Service):
                 game.key.delete()
                 return StringMessage(message="The game has been deleted!")
             else:
-                raise endpoints.ForbiddenException("Not allowed to delete a completed game")
+                raise endpoints.ForbiddenException(
+                    "Not allowed to delete a completed game")
         else:
             raise endpoints.NotFoundException("Game not found")
 
@@ -177,20 +181,20 @@ class SolitaireAPI(remote.Service):
                       response_message=GameForm,
                       path='game/{urlsafe_game_key}',
                       name='make_move',
-                      http_method='POST')
+                      http_method='PUT')
     def make_move(self, request):
         """Make a move"""
         action = request.action
         origin = request.origin
         destination = request.destination
-        card_position  = request.card_position
+        card_position = request.card_position
 
         # If action is MOVE, the source and destination
         # field cannot be empty
         if action == Action.MOVE:
             if not origin or not destination:
-                raise endpoints.BadRequestException('Souce and Destination ' +
-                                 'must not be empty for MOVE action')
+                raise endpoints.BadRequestException(
+                    'Souce and Destination must not be empty for MOVE action')
 
             if not card_position:
                 card_position = -1
@@ -198,7 +202,8 @@ class SolitaireAPI(remote.Service):
         # If action is SHOW, the source field cannot be empty
         if action == Action.SHOW:
             if not origin:
-                raise endpoints.BadRequestException('Souce must not be empty for SHOW action')
+                raise endpoints.BadRequestException(
+                    'Souce must not be empty for SHOW action')
 
         # Load the game from DB
         game_db = get_by_urlsafe(request.urlsafe_game_key, Game)
@@ -229,8 +234,8 @@ class SolitaireAPI(remote.Service):
 
         if action == Action.MOVE:
             changed = game.move(origin=str(origin),
-                      destination=str(destination),
-                      card_position=card_position)
+                                destination=str(destination),
+                                card_position=card_position)
             if changed:
                 game_db.moves += 1
             else:
@@ -263,14 +268,13 @@ class SolitaireAPI(remote.Service):
 
             game_db.put()
 
-        # If changed, save game history
-        if changed:
-            game_history = GameHistory.new_history(game=game_db.key,
-                                       sequence=game_db.moves,
-                                       piles=game_db.piles,
-                                       foundations=game_db.foundations,
-                                       deck=game_db.deck,
-                                       open_deck=game_db.open_deck)
+            GameHistory.new_history(game=game_db.key,
+                                    sequence=game_db.moves,
+                                    game_over=game_db.game_over,
+                                    piles=game_db.piles,
+                                    foundations=game_db.foundations,
+                                    deck=game_db.deck,
+                                    open_deck=game_db.open_deck)
 
         if game_db.game_over:
             game_db.save_game()
@@ -298,7 +302,7 @@ class SolitaireAPI(remote.Service):
         user = User.query(User.user_name == request.user_name).get()
         if not user:
             raise endpoints.NotFoundException(
-                    'A User with that name does not exist!')
+                'A User with that name does not exist!')
         scores = Score.query(Score.user == user.key)
         if not scores:
             raise endpoints.NotFoundException("No scores found for this User")
@@ -312,7 +316,9 @@ class SolitaireAPI(remote.Service):
                       http_method='GET')
     def get_best_scores(self, request):
         """Return the best game results"""
-        scores = Score.query().order(Score.moves).fetch(int(request.number_of_results))
+        scores = Score.query().order(Score.moves).fetch(
+            int(request.number_of_results))
+
         if not scores:
             raise endpoints.NotFoundException("No scores found")
 
@@ -333,12 +339,15 @@ class SolitaireAPI(remote.Service):
         # Find the best score for each user, create a form
         # and add it to the rangkings list
         for user in users:
-            score_best = Score.query(Score.user == user.key).order(Score.moves).get()
+            score_best = Score.query(
+                Score.user == user.key).order(Score.moves).get()
             if not score_best:
                 raise endpoints.NotFoundException("No scores available")
 
-            best_result_form = UserBestResultForm(user=score_best.user.get().user_name,
+            best_result_form = UserBestResultForm(
+                user=score_best.user.get().user_name,
                 least_moves=score_best.moves)
+
             rankings.append(best_result_form)
 
         # Sort the ranking list based on the least_moves
@@ -352,13 +361,13 @@ class SolitaireAPI(remote.Service):
                       http_method='GET')
     def get_game_history(self, request):
         """Return every moves of the game"""
-        game_histories = GameHistory.query(ancestor=ndb.Key(urlsafe=request.urlsafe_game_key)).fetch()
+        game_histories = GameHistory.query(ancestor=ndb.Key(
+            urlsafe=request.urlsafe_game_key)).fetch()
         if not game_histories:
             raise endpoints.NotFoundException("No Game Histories found")
 
-        return GameHistoryForms(items=[history.to_form() for history in game_histories])
-
-
+        return GameHistoryForms(
+            items=[history.to_form() for history in game_histories])
 
 
 api = endpoints.api_server([SolitaireAPI])

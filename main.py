@@ -7,7 +7,6 @@ import logging
 import webapp2
 from google.appengine.api import mail, app_identity
 from api import SolitaireAPI
-
 from models import User
 from models import Game
 
@@ -20,13 +19,9 @@ class SendReminderEmail(webapp2.RequestHandler):
         users = User.query(User.email != None).fetch()
         have_incomplete_game = False
         for user in users:
-            games = Game.query(ancestor=user.key).fetch()
-            for game in games:
-                if not game.game_over:
-                    have_incomplete_game = True
-                    break
+            active_games = Game.query(ancestor=user.key).filter(Game.game_over==False).fetch()
 
-            if have_incomplete_game:
+            if active_games:
                 subject = 'This is a reminder!'
                 body = 'Hello {}, try out Solitaire Game!'.format(user.user_name)
                 # This will send test emails, the arguments to send_mail are:

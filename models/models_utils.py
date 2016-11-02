@@ -1,5 +1,6 @@
 from card_forms import CardForm, CardForms
 
+
 def card_deck_objects_to_message_field(objects):
     """Conver Python card deck objects to MessageField"""
     if type(objects) is not list:
@@ -22,6 +23,7 @@ def card_deck_objects_to_message_field(objects):
         return decks[0]
     else:
         return decks
+
 
 def byteify(input):
     """Convert JSON string to JSON object"""

@@ -1,8 +1,6 @@
 from random import randint
 from termcolor import colored, cprint
 
-import jsonpickle
-
 SUITS = ['club', 'diamond', 'heart', 'spade']
 COLOR = {}
 for s in ['club', 'spade']:
@@ -16,6 +14,8 @@ NSUITS = 4
 NVALUES = 13
 
 # Class to model a playing card
+
+
 class Card:
     def __init__(self, suit, number, color, upturned):
         self.suit = suit
@@ -57,6 +57,8 @@ class Card:
 
 # A general card stack class which other specific card
 # classes will inherit
+
+
 class Stack:
     def __init__(self):
         self.cards = []
@@ -83,9 +85,11 @@ class Stack:
 
     # Determine whether the stack is empty
     def is_empty(self):
-        return self.cards == []
+        return not self.cards
 
 # The class to model the pile
+
+
 class Pile(Stack):
     def addable(self, cards):
         card = cards[0]
@@ -107,6 +111,8 @@ class Pile(Stack):
         return self.cards[-1].upturned
 
 # The class to model the foundation
+
+
 class Foundation(Stack):
     def addable(self, cards):
 
@@ -125,6 +131,8 @@ class Foundation(Stack):
         return cards[0].suit == top_card.suit and cards[0].number == top_card.number + 1
 
 # The class to model the deck
+
+
 class Deck(Stack):
 
     # No cards should be allowed to add the deck
@@ -137,7 +145,7 @@ class Deck(Stack):
             for i in range(1, NVALUES + 1):
                 card = Card(suit=s,
                             number=i,
-                            color= COLOR[s],
+                            color=COLOR[s],
                             upturned=False)
                 self.add(card)
 
@@ -159,11 +167,15 @@ class Deck(Stack):
 
 # A class to model the open deck. After a card is dealed,
 # it is moved to the open deck. The open deck cards are upturned
+
+
 class OpenDeck(Stack):
     def addable(self, cards):
         return True
 
 # A class to model the game
+
+
 class SolitaireGame:
 
     def __init__(self, piles, foundations, deck, open_deck, game_over):
@@ -198,7 +210,7 @@ class SolitaireGame:
         self.deck.shuffle()
 
         # Create an empty open deck
-        self.open_deck  = OpenDeck()
+        self.open_deck = OpenDeck()
 
         # Fill the piles. The first pile gets 1 card,
         # the second gets 2 cards, the third 3 cards,
@@ -206,11 +218,11 @@ class SolitaireGame:
         for i in range(0, NPILES):
             self.piles.append(Pile())
 
-            self.piles[i].add(self.deck.cards[-1-i:])
+            self.piles[i].add(self.deck.cards[-1 - i:])
 
             self.piles[i].show_top_card()
 
-            for _ in range(i+1):
+            for _ in range(i + 1):
                 self.deck.remove()
 
         # Create NSUITS empty foundations
@@ -219,11 +231,16 @@ class SolitaireGame:
             self.foundations.append(Foundation())
 
         self.print_game()
+        print self.deck.cards
+        print self.open_deck.cards
 
     # Deal a card
     def deal(self):
         # If there are no cards left in the deck,
         # move all cards from open deck back to the deck
+        if self.deck.is_empty() and self.open_deck.is_empty():
+            return
+
         if self.deck.is_empty():
             self.open_deck.cards.reverse()
             self.deck.cards = self.open_deck.cards
@@ -282,7 +299,6 @@ class SolitaireGame:
         # determine target stack
         if destination_name == 'PILE':
             target = self.piles[destination_no]
-
 
         if destination_name == 'FOUNDATION':
             target = self.foundations[destination_no]
@@ -371,9 +387,10 @@ class SolitaireGame:
                 c.print_card(),
             print ' '
 
-## Code to test this module ##
-## ------------------------ ##
+# Code to test this module #
+# To make testing easier, you could change #
+# NPILES, NSUITS and NVALUES at the top to smaller numbers #
+# ---------------------------------------------------- #
 # game = SolitaireGame(None, None, None, None, False)
 # game.new_game()
 # game.start()
-
