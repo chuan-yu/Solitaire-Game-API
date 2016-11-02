@@ -389,7 +389,7 @@ class SolitaireGame:
 
 # Code to test this module #
 # To make testing easier, you could change #
-# NPILES, NSUITS and NVALUES at the top to smaller numbers #
+# NPILES and NVALUES at the top to smaller numbers, e.g. 2 #
 # ---------------------------------------------------- #
 # game = SolitaireGame(None, None, None, None, False)
 # game.new_game()
